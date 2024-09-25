@@ -2,6 +2,7 @@ Include:
 ```{r}
 library(data.table)
 library(dplyr)
+library(lubridate)
 ```
 
 
@@ -40,6 +41,8 @@ buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
 buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
 #set all trash data to NA
 
+buoy$datetime <- ymd_h(paste(buoy$YY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
+#Add new datetime column
 ```
 
 
