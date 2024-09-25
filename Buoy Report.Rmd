@@ -1,6 +1,7 @@
 Include:
 ```{r}
 library(data.table)
+library(dplyr)
 ```
 
 
@@ -12,7 +13,7 @@ file_root<-"https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h"
 year_num<-"1985"
 year<-as.character(seq(1986,2023))
 tail<- ".txt.gz&dir=data/historical/stdmet/"
-path<-paste0(file_root,year1,tail)
+path<-paste0(file_root,year_num,tail)
 header=scan(path,what= 'character',nlines=1)
 buoy<-fread(path,header=FALSE,skip=2)
 colnames(buoy)<-header
@@ -29,6 +30,15 @@ CLEAN DATA
 ```{r}
 buoy<-subset(buoy, select = -V17)
 buoy<-subset(buoy, select = -V18)
+#if you run distinct on both they dont include anything other than NA or 99
+
+buoy$VIS<-ifelse(buoy$VIS==99, NA, buoy$VIS)
+buoy$DEWP<-ifelse(buoy$DEWP==999, NA, buoy$DEWP)
+buoy$MWD<-ifelse(buoy$MWD==999, NA, buoy$MWD)
+buoy$APD<-ifelse(buoy$APD==99, NA, buoy$APD)
+buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
+buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
+#set all trash data to NA
 
 ```
 
