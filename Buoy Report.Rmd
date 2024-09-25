@@ -28,6 +28,7 @@ for (i in 1:length(year)){
 }
 ```
 
+
 CLEAN DATA
 ```{r}
 buoy<-subset(buoy, select = -V17)
@@ -49,11 +50,11 @@ buoy$datetime <- ymd_h(paste(buoy$YY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
 
 VISUALIZATION
 ```{r}
-BAR_cat<-ifelse(is.na(buoy$BAR), "NA", "Everything Else")
+VIS_cat<-ifelse(is.na(buoy$VIS), "N/A", "Has Data")
 
-ggplot(buoy, aes(x = datetime, y = BAR_cat)) +
+ggplot(buoy, aes(x = datetime, y = VIS_cat)) +
   geom_point() +
-  labs(x = "Time", y = "Category", title = "Values for BAR: NA vs. Everything Else")
+  labs(x = "Time", y = "Category", title = "Values for VIS: NA vs. Everything Else")
 ```
 
 
