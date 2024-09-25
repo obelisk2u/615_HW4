@@ -4,6 +4,7 @@ library(data.table)
 library(dplyr)
 library(lubridate)
 library(ggplot2)
+library(zoo)
 ```
 
 
@@ -63,8 +64,15 @@ I was interested in learning more about the distribution of NAs in VIS (visibili
 
 My personal theory is that they had an initial test of including visibility data between ~1994-1996. Then, whether due to a lack of funding, or degradation of 90's quality hardware they stopped including it. Then, as the transfer of data got cheaper and hardware increased in quality they booted back up visibility readings ~2005. The explanation as to why there is also NAs in that time period of early visibility readings is visibility data wasn't read as often as other factors leaving the VIS data to be empty.  
 
-```{r}
 
+ATTEMPT TO PROVE CLIMATE CHANGE (IMPOSSIBLE BECAUSE ITS A LIBERAL CONSPIRACY)
+```{r}
+buoy <- buoy %>%
+  mutate(temp_moving_avg = rollmean(ATMP, k = 1000, fill = NA, align = "center"))
+
+ggplot(buoy, aes(x = datetime, y = temp_moving_avg)) +
+  geom_point() +
+  labs(x = "Time", y = "Category", title = "Moving average of temp over time")
 ```
 
 
