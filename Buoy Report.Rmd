@@ -1,0 +1,54 @@
+Include:
+```{r}
+library(data.table)
+```
+
+
+
+
+READ IN DATA
+```{r}
+file_root<-"https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h"
+year_num<-"1985"
+year<-as.character(seq(1986,2023))
+tail<- ".txt.gz&dir=data/historical/stdmet/"
+path<-paste0(file_root,year1,tail)
+header=scan(path,what= 'character',nlines=1)
+buoy<-fread(path,header=FALSE,skip=2)
+colnames(buoy)<-header
+
+for (i in 1:length(year)){
+  year_num = year[i]
+  path<-paste0(file_root, year_num, tail)
+  tmp<-fread(path,header=FALSE,skip=2, showProgress=FALSE)
+  buoy<-rbind(buoy, tmp, use.names=FALSE, fill=TRUE)
+}
+```
+
+CLEAN DATA
+```{r}
+buoy<-subset(buoy, select = -V17)
+buoy<-subset(buoy, select = -V18)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
