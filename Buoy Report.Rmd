@@ -3,6 +3,7 @@ Include:
 library(data.table)
 library(dplyr)
 library(lubridate)
+library(ggplot2)
 ```
 
 
@@ -39,12 +40,21 @@ buoy$MWD<-ifelse(buoy$MWD==999, NA, buoy$MWD)
 buoy$APD<-ifelse(buoy$APD==99, NA, buoy$APD)
 buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
 buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
+buoy$BAR<-ifelse(buoy$BAR==999, NA, buoy$BAR)
 #set all trash data to NA
 
 buoy$datetime <- ymd_h(paste(buoy$YY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
 #Add new datetime column
 ```
 
+VISUALIZATION
+```{r}
+BAR_cat<-ifelse(is.na(buoy$BAR), "NA", "Everything Else")
+
+ggplot(buoy, aes(x = datetime, y = BAR_cat)) +
+  geom_point() +
+  labs(x = "Time", y = "Category", title = "Values for BAR: NA vs. Everything Else")
+```
 
 
 
