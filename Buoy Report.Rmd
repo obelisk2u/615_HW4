@@ -1,3 +1,10 @@
+---
+title: "615 HW4"
+author: "Jordan Stout"
+date: "9/27/2022"
+output: pdf_document
+---
+
 Include:
 ```{r}
 library(data.table)
@@ -5,6 +12,7 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(tibble)
+library(rstanarm)
 ```
 
 
@@ -82,7 +90,7 @@ buoy$MWD<-ifelse(buoy$MWD==999, NA, buoy$MWD)
 buoy$APD<-ifelse(buoy$APD==99, NA, buoy$APD)
 buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
 buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
-buoy$BAR<-ifelse(buoy$BAR==999, NA, buoy$BAR)
+buoy$BAR<-ifelse(buoy$BAR==9999, NA, buoy$BAR)
 buoy$ATMP<-ifelse(buoy$ATMP==999, NA, buoy$ATMP)
 buoy$WTMP<-ifelse(buoy$WTMP==999, NA, buoy$WTMP)
 
@@ -94,14 +102,9 @@ buoy$datetime <- ymd_h(paste(buoy$YYYY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
 
 NA DISTRIBUTION ANALYSIS
 ```{r}
-#create vector over time that specifies whether the VIS index has a data reading or and NA
-BAR_NA<-ifelse(is.na(buoy$BAR), 0, 1)
+#create vector over time that specifies whether the ATMP index has a data reading or and NA
 ATMP_NA<-ifelse(is.na(buoy$ATMP), "N/A", "Valid Data")
-WTMP_NA<-ifelse(is.na(buoy$WTMP), 0, 1)
-WSPD_NA<-ifelse(is.na(buoy$WSPD), 0, 1)
-DEWP_NA<-ifelse(is.na(buoy$DEWP), 0, 1)
-na_df<-data.frame(buoy$datetime, BAR_NA, ATMP_NA, WTMP_NA, WSPD_NA, DEWP_NA)
-na_df$AND<-na_df$BAR_NA & na_df$ATMP_NA & na_df$WTMP_NA & na_df$WSPD_NA & na_df$DEWP_NA
+na_df<-data.frame(buoy$datetime, ATMP_NA)
 
 #plot this vector versus time
 ggplot(na_df, aes(x = buoy.datetime, y = ATMP_NA)) +
@@ -121,7 +124,7 @@ yearly_min_temps <- buoy %>%
 ggplot(yearly_min_temps, aes(x = year, y = min)) +
   geom_point() +                          # Scatter plot
   geom_smooth(method = "lm", col = "blue")+
-  labs(title = "Minimum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
+  labs(title = "Minimum Yearly Water Temperature from 1985-2023", x = "Year", y = "Degrees C")
 
 #===========================================
 #YEARLY MAX TEMPERATURES
@@ -132,32 +135,69 @@ yearly_max_temps <- buoy %>%
 ggplot(yearly_max_temps, aes(x = year, y = max)) +
   geom_point() +                          # Scatter plot
   geom_smooth(method = "lm", col = "red")+
-  labs(title = "Maximum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
+  labs(title = "Maximum Yearly Water Temperature from 1985-2023", x = "Year", y = "Degrees C")
+```
+As you can see in both the yearly maximum and minimum water temperatures, the regression lines are significantly increasing from 1985-2023. 
 
-#===========================================
-#DIFF IN MAX AND MIN TEMPS
-diff_temps<-yearly_max_temps$max - yearly_min_temps$min
-diff_extremes<-data.frame(yearly_max_temps$year, diff_temps)
-ggplot(yearly_max_temps, aes(x = year, y = diff_temps)) +
-  geom_point() +                          # Scatter plot
-  geom_smooth(method = "lm", col = "red")+
-  labs(title = "Maximum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
+
+COMPARING RAIN DATA FROM BUOYS AND RAINFALL.CSV
+```{r}
+rain<-read.csv("Rainfall.csv")
+rain$datetime<-ymd_hm(rain$DATE)
+rain_subset <- rain[, c("datetime", "HPCP")]
+rain_subset <- rain_subset%>%
+  left_join(select(buoy, datetime, BAR), by = "datetime")
+
+rain_predict<-stan_glm(HPCP~BAR, data = rain_subset, refresh = 0)
+lots_o_rain <- rain_subset %>%
+  filter(HPCP > 0.5) %>%
+  filter(BAR < 2000)
+mean_BAR<-mean(na.omit(buoy$BAR))
+
+ggplot(lots_o_rain, aes(x = datetime, y = BAR)) +
+  geom_point() +                       
+  labs(title = "Days Where Precipitation/Hour > 0.5in versus Air Pressure \n Compared to Mean Pressure Value", x = "Year", y = "Pressure (hPa)") +
+  geom_hline(yintercept = mean_BAR, color = "blue", linetype = "dashed", size = 1) +
+  theme_minimal()
+
 ```
 
+A low-pressure system forms when air in a particular area rises. As air rises, it cools and can hold less moisture. This cooling leads to condensation, which forms clouds. As the clouds develop and moisture condenses further, it can lead to the formation of precipitation, such as rain or snow. This is visualized above by graphing the air pressure on days where there was a lot of rain and seeing the majority of the points are below the vertical line which represents the average air temperature.
 
+```{r}
+ggplot(rain_subset, aes(x = datetime, y = BAR)) +
+  geom_point(size = 0.4) +                       
+  labs(title = "Air Pressure Over Time", x = "Year", y = "Pressure (hPa)") +
+  geom_hline(yintercept = mean_BAR, color = "blue", linetype = "dashed", size = 1) +
+  theme_minimal()
+```
 
+This graphic shows us that air pressure varies a lot per year. Notably, using the ideal gas law PV=nRT, we can prove that the lower winter temperatures bring season-long low air pressure leading to precipitation in the form of snowfall. On the other hand, high summer temperatures will bring many temporary low pressure system bringing precipitation in the form of thunderstorms. We can conclude that summer will have more days with a lot of precipitation, but winter snow will bring fewer but more extreme days of precipitation. 
 
+```{r}
+get_season <- function(date) {
+  month <- month(date)
+  if (month %in% c(3, 4, 5)) {
+    return("Spring")
+  } else if (month %in% c(6, 7, 8)) {
+    return("Summer")
+  } else if (month %in% c(9, 10, 11)) {
+    return("Autumn")
+  } else {
+    return("Winter")
+  }
+}
 
+lots_o_rain<-lots_o_rain %>%
+  mutate(season = sapply(datetime, get_season))
 
+ggplot(lots_o_rain, aes(x = season, fill = season)) +
+  geom_bar(position = "dodge") +
+  scale_fill_manual(values = c("Spring" = "darkgreen", "Summer" = "darkgoldenrod3", "Autumn" = "brown4", "Winter" = "darkblue")) +
+  labs(title = "Days of Major Precipitation vs. Season", x = "Season", y = "Count", fill = "Season") +
+  theme_minimal()
+```
 
+Using the above graphic, we can prove our hypothesis by seeing there are many more days of extreme precipitation during the summer with lots of rainfall. While in the winter there are fewer days but the numbers will be much more extreme on the scale of feet of snow. 
 
-
-
-
-
-
-
-
-
-
-
+While I didn't have any specific idea I wanted to prove using this data, we have formed a story of how, why and how much precipitation occurs in the various seasons. 
