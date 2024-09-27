@@ -4,9 +4,7 @@ library(data.table)
 library(dplyr)
 library(lubridate)
 library(ggplot2)
-library(zoo)
 library(tibble)
-library(outliers)
 ```
 
 
@@ -64,7 +62,13 @@ buoy$WD<-na.omit(c(buoy$WD, buoy$WDIR))
 buoy <- buoy %>%
   select(-WDIR)
 ```
+Your next exercise is to identify and deal with the null data in the dataset.Recall from class
+that for WDIR and some other variables these showed up as 999 in the dataset. Convert them
+to NA’s. Is it always appropriate to convert missing/null data to NA’s? When might it not
+be? Analyze the pattern of NA’s. Do you spot any patterns in the way/dates that these are
+distributed?
 
+It is not always appropriate to convert missing/null data to NA. First, it could be an indicator of a larger issue with your dataset, either the reading in process or the data collection. Second, if you plan to do operations on the data, you may want to replace missing data points with various other metrics like the mean or the mode assuming this wouldn't effect the integrity of your study. 
 
 CLEAN DATA
 ```{r}
@@ -86,30 +90,58 @@ buoy$WTMP<-ifelse(buoy$WTMP==999, NA, buoy$WTMP)
 buoy$datetime <- ymd_h(paste(buoy$YYYY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
 ```
 
-VIS NA Explanation
+
+
+NA DISTRIBUTION ANALYSIS
 ```{r}
 #create vector over time that specifies whether the VIS index has a data reading or and NA
-VIS_cat<-ifelse(is.na(buoy$VIS), "N/A", "Has Data")
+BAR_NA<-ifelse(is.na(buoy$BAR), 0, 1)
+ATMP_NA<-ifelse(is.na(buoy$ATMP), "N/A", "Valid Data")
+WTMP_NA<-ifelse(is.na(buoy$WTMP), 0, 1)
+WSPD_NA<-ifelse(is.na(buoy$WSPD), 0, 1)
+DEWP_NA<-ifelse(is.na(buoy$DEWP), 0, 1)
+na_df<-data.frame(buoy$datetime, BAR_NA, ATMP_NA, WTMP_NA, WSPD_NA, DEWP_NA)
+na_df$AND<-na_df$BAR_NA & na_df$ATMP_NA & na_df$WTMP_NA & na_df$WSPD_NA & na_df$DEWP_NA
 
-#plot this vector versus time 
-ggplot(buoy, aes(x = datetime, y = VIS_cat)) +
+#plot this vector versus time
+ggplot(na_df, aes(x = buoy.datetime, y = ATMP_NA)) +
   geom_point() +
-  labs(x = "Time", y = "Category", title = "ATMP vs Time")
+  labs(x = "Time", y = "Category", title = "NA ATMP Data vs Time")
 ```
+The graph above shows the validity of ATMP recordings from the buoy from 1985-2023. As you can see, beginning in the mid 2015s there was a period of perfect data collection without any null values. Online records state that around this time, as the importance of marine research improved, the NDBC began receiving significantly more funding. It can be inferred that this allowed them to either improve technology on the buoys themselves or increase the allowed bandwidth of data transfer which is stated to be a reason for null data in the past. Public records also state that the NDBC was negatively affected by the COVID-19 pandemic, which may explain the resurgence of null values shortly following 2020.
 
 ATTEMPT TO PROVE CLIMATE CHANGE (IMPOSSIBLE BECAUSE ITS A LIBERAL CONSPIRACY)
 ```{r}
-# buoy <- buoy %>%
-#   mutate(temp_moving_avg = rollmean(WTMP, k = 1000, fill = NA, align = "center"))
-#   
+#===========================================
+#YEARLY MINIMUM TEMPERATURES
 yearly_min_temps <- buoy %>%
   group_by(year = year(datetime)) %>%
   summarise(min = min(WTMP, na.rm = TRUE))
 
 ggplot(yearly_min_temps, aes(x = year, y = min)) +
   geom_point() +                          # Scatter plot
+  geom_smooth(method = "lm", col = "blue")+
+  labs(title = "Minimum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
+
+#===========================================
+#YEARLY MAX TEMPERATURES
+yearly_max_temps <- buoy %>%
+  group_by(year = year(datetime)) %>%
+  summarise(max = max(WTMP, na.rm = TRUE))
+
+ggplot(yearly_max_temps, aes(x = year, y = max)) +
+  geom_point() +                          # Scatter plot
   geom_smooth(method = "lm", col = "red")+
-  labs(title = "Minimum Yearly Temperature from 1985-2023", x = "Degrees C", y = "Year")
+  labs(title = "Maximum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
+
+#===========================================
+#DIFF IN MAX AND MIN TEMPS
+diff_temps<-yearly_max_temps$max - yearly_min_temps$min
+diff_extremes<-data.frame(yearly_max_temps$year, diff_temps)
+ggplot(yearly_max_temps, aes(x = year, y = diff_temps)) +
+  geom_point() +                          # Scatter plot
+  geom_smooth(method = "lm", col = "red")+
+  labs(title = "Maximum Yearly Water Temperature from 1985-2023", x = "Degrees C", y = "Year")
 ```
 
 
