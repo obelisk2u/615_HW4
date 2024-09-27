@@ -60,32 +60,10 @@ buoy <- buoy %>%
   select(-`#YY`, -PRES)
 
 ```
-```{r}
-# file_root<-"https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h"
-# year_num<-"2023"
-# year<-as.character(seq(2022, 1985))
-# tail<- ".txt.gz&dir=data/historical/stdmet/"
-# path<-paste0(file_root,year_num,tail)
-# header=scan(path,what= 'character',nlines=1)
-# buoy<-fread(path,header=FALSE,skip=2)
-# colnames(buoy)<-header
-# tmp<-buoy
-# 
-# for (i in 1:length(year)){
-#   year_num = year[i]
-#   path<-paste0(file_root, year_num, tail)
-#   buoy<-rbind(buoy, fread(path,header=FALSE,skip=2, showProgress=FALSE), fill=TRUE)
-#   tmp <- tmp %>%
-#     add_column(mm = NA, .after = "hh") %>%
-#     add_column(TIDE = NA, .after = "VIS")
-#   buoy<-rbind(buoy, tmp, use.names=FALSE)
-```
 
 
 CLEAN DATA
 ```{r}
-#if you run distinct on V18 it doesn't include anything other than NA or 99 so we can remove this column completely 
-buoy<-subset(buoy, select = -V18)
 
 #set all trash data to NA
 buoy$VIS<-ifelse(buoy$VIS==99, NA, buoy$VIS)
@@ -98,7 +76,7 @@ buoy$BAR<-ifelse(buoy$BAR==999, NA, buoy$BAR)
 buoy$ATMP<-ifelse(buoy$ATMP==999, NA, buoy$ATMP)
 
 #Add new datetime column
-buoy$datetime <- ymd_h(paste(buoy$YY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
+buoy$datetime <- ymd_h(paste(buoy$YYYY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
 ```
 
 VIS NA Explanation
