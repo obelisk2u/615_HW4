@@ -6,6 +6,7 @@ library(lubridate)
 library(ggplot2)
 library(zoo)
 library(tibble)
+library(outliers)
 ```
 
 
@@ -59,12 +60,17 @@ buoy$BAR<-na.omit(c(buoy$BAR, buoy$PRES))
 buoy <- buoy %>%
   select(-`#YY`, -PRES)
 
+buoy$WD<-na.omit(c(buoy$WD, buoy$WDIR))
+buoy <- buoy %>%
+  select(-WDIR)
 ```
 
 
 CLEAN DATA
 ```{r}
-
+#Remove TIDE column because it has nothing except 99 and NA
+buoy=buoy %>%
+  select(-TIDE)
 #set all trash data to NA
 buoy$VIS<-ifelse(buoy$VIS==99, NA, buoy$VIS)
 buoy$DEWP<-ifelse(buoy$DEWP==999, NA, buoy$DEWP)
@@ -74,6 +80,7 @@ buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
 buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
 buoy$BAR<-ifelse(buoy$BAR==999, NA, buoy$BAR)
 buoy$ATMP<-ifelse(buoy$ATMP==999, NA, buoy$ATMP)
+buoy$WTMP<-ifelse(buoy$WTMP==999, NA, buoy$WTMP)
 
 #Add new datetime column
 buoy$datetime <- ymd_h(paste(buoy$YYYY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
@@ -87,23 +94,22 @@ VIS_cat<-ifelse(is.na(buoy$VIS), "N/A", "Has Data")
 #plot this vector versus time 
 ggplot(buoy, aes(x = datetime, y = VIS_cat)) +
   geom_point() +
-  labs(x = "Time", y = "Category", title = "Values for VIS: NA vs. Everything Else")
+  labs(x = "Time", y = "Category", title = "ATMP vs Time")
 ```
-
-I was interested in learning more about the distribution of NAs in VIS (visibility) observations. Initially I figured that visibility value was calculated through photos, leading me to expect data to begin to appear when satelite bandwidth improved enough to be able to handle photos. Instead I discovered that the buoys calculate visibility through a series of calculations including wind speed, direction, humidity, temperature, and other factors. I also did some research and learned that NDBC implemented cameras in 2018. Both of these realizations determined that there must be another explanation to the distribution of NA data. 
-
-My personal theory is that they had an initial test of including visibility data between ~1994-1996. Then, whether due to a lack of funding, or degradation of 90's quality hardware they stopped including it. Then, as the transfer of data got cheaper and hardware increased in quality they booted back up visibility readings ~2005. The explanation as to why there is also NAs in that time period of early visibility readings is visibility data wasn't read as often as other factors leaving the VIS data to be empty.  
-
 
 ATTEMPT TO PROVE CLIMATE CHANGE (IMPOSSIBLE BECAUSE ITS A LIBERAL CONSPIRACY)
 ```{r}
-buoy <- buoy %>%
-  mutate(temp_moving_avg = rollmean(ATMP, k = 1000, fill = NA, align = "center"))
-  
+# buoy <- buoy %>%
+#   mutate(temp_moving_avg = rollmean(WTMP, k = 1000, fill = NA, align = "center"))
+#   
+yearly_min_temps <- buoy %>%
+  group_by(year = year(datetime)) %>%
+  summarise(min = min(WTMP, na.rm = TRUE))
 
-ggplot(buoy, aes(x = datetime, y = temp_moving_avg)) +
-  geom_point() +
-  labs(x = "Time", y = "Category", title = "Moving average of temp over time")
+ggplot(yearly_min_temps, aes(x = year, y = min)) +
+  geom_point() +                          # Scatter plot
+  geom_smooth(method = "lm", col = "red")+
+  labs(title = "Minimum Yearly Temperature from 1985-2023", x = "Degrees C", y = "Year")
 ```
 
 
