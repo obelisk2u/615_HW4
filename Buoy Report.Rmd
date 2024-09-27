@@ -5,6 +5,7 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(zoo)
+library(tibble)
 ```
 
 
@@ -12,28 +13,78 @@ library(zoo)
 
 READ IN DATA
 ```{r}
-file_root<-"https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h"
-year_num<-"1985"
-year<-as.character(seq(1986,2023))
-tail<- ".txt.gz&dir=data/historical/stdmet/"
-path<-paste0(file_root,year_num,tail)
-header=scan(path,what= 'character',nlines=1)
-buoy<-fread(path,header=FALSE,skip=2)
-colnames(buoy)<-header
 
-for (i in 1:length(year)){
-  year_num = year[i]
-  path<-paste0(file_root, year_num, tail)
-  tmp<-fread(path,header=FALSE,skip=2, showProgress=FALSE)
-  buoy<-rbind(buoy, tmp, use.names=FALSE, fill=TRUE)
+get_url <- function(year) {
+  paste0("https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h", year, ".txt.gz&dir=data/historical/stdmet/")
 }
+
+#=======================================================
+#INITIATE DATAFRAME WITH 1985 DATA
+year1<-"1985"
+buoy<-read.table(get_url(year1), header = TRUE, sep = "", na.strings = "MM", fill = TRUE)
+
+header=scan(get_url(year1),what= 'character',nlines=1)
+colnames(buoy)<-header
+buoy = buoy %>%
+  add_column(mm = NA, .after = "hh") %>%
+  add_column(TIDE = NA, .after = "VIS")
+#========================================================
+#HANDLE YEARS 1986-2006
+years <- 1986:2006
+for (i in years) {
+  url <- get_url(i)
+  temp_data <- read.table(get_url(i), header = TRUE, sep = "",fill = TRUE)
+  temp_data = temp_data %>%
+    add_column(mm = NA, .after = "hh") %>%
+    add_column(TIDE = NA, .after = "VIS")
+  buoy <- bind_rows(buoy, temp_data)
+}
+buoy$YY<-na.omit(c(buoy$YY, buoy$YYYY))
+buoy <- buoy %>%
+  select(-YYYY, -TIDE.1, -mm.1)
+colnames(buoy)[colnames(buoy) == "YY"] <- "YYYY"
+#=========================================================
+#HANDLE YEARS 2007-2023
+years<-2007:2023
+for (i in years) {
+  url <- get_url(i)
+  temp_data <- (read.table(get_url(i), header = FALSE, sep = "",fill = TRUE, skip=1))
+  header=scan(get_url(i),what= 'character',nlines=1)
+  colnames(temp_data)<-header
+  buoy <- bind_rows(buoy, temp_data)
+}
+
+buoy$YYYY<-na.omit(c(buoy$YYYY, buoy$`#YY`))
+buoy$BAR<-na.omit(c(buoy$BAR, buoy$PRES))
+buoy <- buoy %>%
+  select(-`#YY`, -PRES)
+
+```
+```{r}
+# file_root<-"https://www.ndbc.noaa.gov/view_text_file.php?filename=44013h"
+# year_num<-"2023"
+# year<-as.character(seq(2022, 1985))
+# tail<- ".txt.gz&dir=data/historical/stdmet/"
+# path<-paste0(file_root,year_num,tail)
+# header=scan(path,what= 'character',nlines=1)
+# buoy<-fread(path,header=FALSE,skip=2)
+# colnames(buoy)<-header
+# tmp<-buoy
+# 
+# for (i in 1:length(year)){
+#   year_num = year[i]
+#   path<-paste0(file_root, year_num, tail)
+#   buoy<-rbind(buoy, fread(path,header=FALSE,skip=2, showProgress=FALSE), fill=TRUE)
+#   tmp <- tmp %>%
+#     add_column(mm = NA, .after = "hh") %>%
+#     add_column(TIDE = NA, .after = "VIS")
+#   buoy<-rbind(buoy, tmp, use.names=FALSE)
 ```
 
 
 CLEAN DATA
 ```{r}
-#if you run distinct on both they dont include anything other than NA or 99 so we can remove these columns completely 
-buoy<-subset(buoy, select = -V17)
+#if you run distinct on V18 it doesn't include anything other than NA or 99 so we can remove this column completely 
 buoy<-subset(buoy, select = -V18)
 
 #set all trash data to NA
@@ -44,6 +95,7 @@ buoy$APD<-ifelse(buoy$APD==99, NA, buoy$APD)
 buoy$DPD<-ifelse(buoy$DPD==99, NA, buoy$DPD)
 buoy$WVHT<-ifelse(buoy$WVHT==99, NA, buoy$WVHT)
 buoy$BAR<-ifelse(buoy$BAR==999, NA, buoy$BAR)
+buoy$ATMP<-ifelse(buoy$ATMP==999, NA, buoy$ATMP)
 
 #Add new datetime column
 buoy$datetime <- ymd_h(paste(buoy$YY, buoy$MM, buoy$DD, buoy$hh, sep = "-"))
@@ -69,6 +121,7 @@ ATTEMPT TO PROVE CLIMATE CHANGE (IMPOSSIBLE BECAUSE ITS A LIBERAL CONSPIRACY)
 ```{r}
 buoy <- buoy %>%
   mutate(temp_moving_avg = rollmean(ATMP, k = 1000, fill = NA, align = "center"))
+  
 
 ggplot(buoy, aes(x = datetime, y = temp_moving_avg)) +
   geom_point() +
